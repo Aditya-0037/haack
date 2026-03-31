@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Healer - Premium Canvas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+    html.light-mode { filter: invert(1) hue-rotate(180deg); background-color: #030712; }
+    html.light-mode canvas { filter: invert(1) hue-rotate(180deg); }
+    body { background-color: #030712; color: #f9fafb; font-family: 'Inter', system-ui, sans-serif; overflow-x: hidden; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .glass-header { background: rgba(3, 7, 18, 0.4); backdrop-filter: blur(24px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .glass-card { background: linear-gradient(135deg, rgba(17, 24, 39, 0.5) 0%, rgba(17, 24, 39, 0.8) 100%); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+    .glass-card:hover { transform: translateY(-4px) scale(1.01); box-shadow: 0 25px 50px -12px rgba(34, 211, 238, 0.15); border-color: rgba(34, 211, 238, 0.3); }
+    .shimmer-text { background: linear-gradient(to right, #818cf8 20%, #22d3ee 40%, #22d3ee 60%, #818cf8 80%); background-size: 200% auto; color: transparent; -webkit-background-clip: text; animation: shimmer 3s linear infinite; }
+    @keyframes shimmer { to { background-position: 200% center; } }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.6); }
+    @keyframes pulseSlow { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.05); opacity: 0.6; } }
+    .animate-pulse-slow { animation: pulseSlow 8s ease-in-out infinite; }
+
+  </style>
+</head>
+<body class="min-h-screen relative selection:bg-cyan-500/30">
+  <canvas id="node-canvas" class="fixed inset-0 z-[0] opacity-80 pointer-events-none"></canvas>
+  <div id="landing-view" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-transparent transition-opacity duration-1000 overflow-hidden">
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute top-[10%] left-[10%] w-[60vw] h-[60vw] rounded-full bg-indigo-600/10 blur-[150px] animate-[pulse_8s_ease-in-out_infinite]"></div>
+      <div class="absolute bottom-[10%] right-[10%] w-[50vw] h-[50vw] rounded-full bg-cyan-600/10 blur-[150px] animate-[pulse_10s_ease-in-out_infinite_reverse]"></div>
+    </div>
+    <div class="relative z-10 flex flex-col items-center px-6">
+      <div class="w-24 h-24 mb-8 rounded-[2rem] bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-[0_0_50px_rgba(34,211,238,0.4)] animate-bounce" style="animation-duration: 3s;">
+        <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <h1 class="text-6xl md:text-[5.5rem] font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 tracking-tighter mb-4 text-center leading-[1.1]">
+        Cloud Healer <br/><span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">Nexus</span>
+      </h1>
+      <p class="text-gray-400 text-lg max-w-xl text-center mb-16 font-light tracking-wide leading-relaxed">Next-generation autonomous dashboard interface. Engage the core cluster to orchestrate live continuous data.</p>
+      <button onclick="launchDashboard()" class="relative group px-1.5 py-1.5 rounded-full overflow-hidden transition-all duration-500 hover:scale-[1.05] active:scale-95 shadow-[0_0_30px_rgba(34,211,238,0.2)] hover:shadow-[0_0_50px_rgba(34,211,238,0.4)]">
+        <div class="absolute inset-[-100%] bg-[conic-gradient(from_90deg,transparent_0%,transparent_50%,#4f46e5_50%,#22d3ee_100%)] animate-[spin_3s_linear_infinite] group-hover:animate-[spin_1s_linear_infinite]"></div>
+        <div class="absolute inset-[2px] bg-[#030712] rounded-full transition-colors"></div>
+        <div class="relative z-10 flex items-center gap-4 px-10 py-4 font-bold text-white text-lg tracking-widest uppercase transition-colors duration-300">
+          Engage System
+          <svg class="w-6 h-6 group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <div id="dashboard-view" class="relative z-[50] hidden opacity-0 transition-opacity duration-1000 min-h-screen flex-col">
+    <header class="glass-header sticky top-0 z-40 px-6 py-4">
+      <div class="max-w-[1400px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center shadow-[0_0_15px_rgba(34,211,238,0.4)]">
+            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <div><h1 class="text-xl font-bold shimmer-text tracking-tight uppercase">Cloud Healer</h1><p class="text-gray-400 text-[10px] font-semibold tracking-widest uppercase mt-0.5">Automated Optimization</p></div>
+        </div>
+        <div class="flex items-center gap-4">
+          <button onclick="document.documentElement.classList.toggle('light-mode')" class="px-4 py-2.5 rounded-lg bg-gray-800/50 hover:bg-gray-700 border border-gray-700 text-gray-400 hover:text-white text-xs font-bold uppercase transition-all shadow-[0_0_10px_rgba(0,0,0,0.5)]">🌓 Theme</button>
+          <button id="btn-scan" onclick="startScan()" class="px-6 py-2.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500 hover:text-gray-900 border border-cyan-500/30 text-cyan-400 text-xs font-bold tracking-widest uppercase transition-all shadow-[0_0_15px_rgba(34,211,238,0.2)]">▶ Initialize Scanner</button>
+          <div id="live-indicator" class="hidden items-center gap-6 px-5 py-2 rounded-lg bg-gray-900/50 border border-gray-800/80 backdrop-blur-md">
+             <div class="flex items-center gap-3"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span><span class="text-[10px] font-bold text-emerald-400 tracking-[0.1em] uppercase">Live Polling</span></div>
+             <div class="h-4 w-px bg-gray-700/50"></div>
+             <div class="flex items-baseline gap-2"><span id="node-count" class="text-base font-bold text-white font-mono">0</span><span class="text-[9px] text-gray-500 font-bold tracking-[0.2em] uppercase">Nodes</span></div>
+             <div class="h-4 w-px bg-gray-700/50"></div>
+             <button onclick="openModal()" class="text-[10px] font-bold tracking-[0.1em] text-cyan-400 hover:text-white transition-colors uppercase">Executive Report</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="max-w-[1400px] mx-auto p-6 relative w-full flex-1">
+      <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+    </main>
+  </div>
+
+  <div id="modal-overlay" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 opacity-0 pointer-events-none transition-all duration-300">
+    <div class="bg-gray-950 border border-cyan-500/20 rounded-[2rem] w-full max-w-5xl overflow-hidden shadow-[0_0_80px_rgba(34,211,238,0.15)] flex flex-col max-h-[90vh] transform scale-95 translate-y-4 transition-all duration-300" id="modal-content">
+      <div class="px-8 py-5 border-b border-gray-800 flex justify-between items-center bg-gradient-to-r from-gray-900 to-gray-900">
+        <h2 id="modal-title" class="text-xl font-bold text-white tracking-tight flex items-center gap-3 flex-1"></h2>
+        <button onclick="closeModal()" class="text-gray-500 hover:text-white transition-colors ml-4"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+      </div>
+      <div class="p-8 overflow-y-auto w-full max-h-[calc(90vh-80px)]" id="modal-body"></div>
+    </div>
+  </div>
+  <div id="toast-container" class="fixed bottom-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none"></div>
+
+  <!-- OAuth Progressive Consent Modal -->
+  <div id="oauth-modal" class="fixed inset-0 z-[300] hidden items-center justify-center bg-black/80 backdrop-blur-md">
+    <div class="relative w-full max-w-md mx-4 bg-gray-900 border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_0_80px_rgba(99,102,241,0.25)] flex flex-col" style="animation: modalIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards;">
+      <!-- Header -->
+      <div class="px-8 pt-8 pb-5 border-b border-white/5">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.5)]">
+            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <div>
+            <p class="text-[10px] font-mono text-indigo-400 uppercase tracking-widest font-bold">Google Cloud IAM</p>
+            <h3 class="text-white font-black text-lg tracking-tight">Authorization Required</h3>
+          </div>
+        </div>
+        <p class="text-gray-400 text-sm leading-relaxed">Cloud Healer is requesting elevated permissions to perform automated remediation on your GCP project.</p>
+      </div>
+      <!-- Permission Details -->
+      <div class="px-8 py-6 space-y-3">
+        <div class="bg-gray-950 border border-indigo-500/20 rounded-xl p-4">
+          <p class="text-[9px] font-mono text-gray-500 uppercase tracking-widest mb-1">Requesting Role</p>
+          <p class="text-indigo-300 font-bold font-mono text-sm">Compute Instance Admin (v1)</p>
+        </div>
+        <div class="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
+          <p class="text-[9px] font-mono text-gray-500 uppercase tracking-widest mb-1">Target Action</p>
+          <p class="text-white font-mono text-sm">Terminate &rarr; <span id="target-server-name" class="text-rose-400 font-black"></span></p>
+        </div>
+        <div class="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
+          <svg class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <p class="text-amber-400/80 text-[10px] font-mono">This action is irreversible. The instance will be permanently decommissioned.</p>
+        </div>
+      </div>
+      <!-- Actions -->
+      <div class="px-8 pb-8 flex gap-3">
+        <button onclick="closeAuthModal()" class="flex-1 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 text-sm font-bold tracking-wide transition-all">Deny</button>
+        <button onclick="executeAuthorizedFix()" class="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold tracking-wide transition-all shadow-[0_0_25px_rgba(59,130,246,0.4)] hover:shadow-[0_0_35px_rgba(59,130,246,0.6)] flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Allow &amp; Authenticate
+        </button>
+      </div>
+    </div>
+  </div>
+  <style>
+    @keyframes modalIn { from { opacity:0; transform:scale(0.92) translateY(16px); } to { opacity:1; transform:scale(1) translateY(0); } }
+  </style>
+
+  <script>
+    const canvas = document.getElementById('node-canvas');
+    const ctx = canvas.getContext('2d');
+    let w, h, nodes = [];
+    function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+    function initNodes() {
+        resize(); nodes = [];
+        for(let i=0; i<150; i++) nodes.push({x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 1.5, vy: (Math.random() - 0.5) * 1.5, radius: Math.random() * 1.5 + 0.5});
+    }
+    function drawNodes() {
+        ctx.clearRect(0, 0, w, h);
+        nodes.forEach(node => {
+            node.x += node.vx; node.y += node.vy;
+            if(node.x < 0 || node.x > w) node.vx *= -1;
+            if(node.y < 0 || node.y > h) node.vy *= -1;
+            ctx.beginPath(); ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(34, 211, 238, 0.8)'; ctx.fill();
+        });
+        ctx.lineWidth = 0.5;
+        for(let i=0; i<nodes.length; i++) {
+            for(let j=i+1; j<nodes.length; j++) {
+                let dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y, dist = Math.sqrt(dx*dx + dy*dy);
+                if(dist < 160) { ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y); ctx.strokeStyle = `rgba(99, 102, 241, ${0.8 - dist/200})`; ctx.stroke(); }
+            }
+        }
+        requestAnimationFrame(drawNodes);
+    }
+    window.addEventListener('resize', initNodes); initNodes(); drawNodes();
+
+    Chart.defaults.color = '#9ca3af'; Chart.defaults.font.family = "'JetBrains Mono', monospace";
+    let globalServers = [], appliedFixes = {}, hasScanned = false, drillDownCategory = null, serverDrillDown = null, scanInterval = null, analyticsTimeframe = 'Live', chartInstance = null, liveChartData = {};
+
+    function launchDashboard() {
+      const landing = document.getElementById('landing-view'); const dash = document.getElementById('dashboard-view');
+      gsap.to(landing, { opacity: 0, scale: 1.05, duration: 0.8, ease: 'power2.inOut', onComplete: () => {
+          landing.style.pointerEvents = 'none'; landing.classList.add('hidden'); dash.classList.remove('hidden', 'opacity-0'); gsap.from('.glass-header', { y: -30, opacity: 0, duration: 1, ease: 'power3.out' });
+      }});
+    }
+
+    async function startScan() {
+      if(hasScanned) return; hasScanned = true;
+      document.getElementById('btn-scan').classList.add('hidden'); document.getElementById('live-indicator').classList.remove('hidden'); document.getElementById('live-indicator').classList.add('flex');
+      updateGridDOM();
+    }
+
+    async function fetchServers() {
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/servers');
+        if (!res.ok) throw new Error('API down');
+        globalServers = applyPersistentFixes(await res.json());
+        const countSpan = document.getElementById('node-count');
+        if (countSpan.innerText !== String(globalServers.length)) { countSpan.innerText = globalServers.length; }
+        const timeStr = new Date().toLocaleTimeString('en-US', {hour12:false});
+        globalServers.forEach(s => {
+           if(!liveChartData[s.id]) liveChartData[s.id] = { labels: [], cpu: [], net: [] };
+           liveChartData[s.id].labels.push(timeStr); liveChartData[s.id].cpu.push(s.cpu_usage_percent); liveChartData[s.id].net.push(s.network_traffic);
+           if(liveChartData[s.id].labels.length > 20) { liveChartData[s.id].labels.shift(); liveChartData[s.id].cpu.shift(); liveChartData[s.id].net.shift(); }
+        });
+        updateGridDOM();
+        if (!document.getElementById('modal-overlay').classList.contains('pointer-events-none')) renderModalBody(); 
+      } catch (err) {
+        if(globalServers.length === 0) document.getElementById('grid-container').innerHTML = `<div class="col-span-full bg-rose-500/10 border border-rose-500/30 p-6 rounded-2xl text-center mt-10"><span class="text-rose-500 font-bold text-xl block mb-2 tracking-widest uppercase">Backend Sync Failed</span></div>`;
+      }
+    }
+
+    function applyPersistentFixes(servers) {
+      return servers.map(server => {
+        const fixes = appliedFixes[server.id] || []; let modified = { ...server };
+        if (fixes.includes('schedule')) { modified.monthly_cost *= 0.4; modified._isScheduled = true; }
+        if (fixes.includes('zombie')) { modified.cpu_usage_percent = -1; modified.network_traffic = 0; modified.monthly_cost = 0; modified.gpu_count = 0; }
+        if (fixes.includes('oversized')) { modified.monthly_cost /= 2; modified.gpu_count = 0; }
+        if (fixes.includes('security')) { modified.open_ports = modified.open_ports.filter(p => p !== "0.0.0.0/0"); modified._securityFixed = true; }
+        return modified;
+      });
+    }
+    function showToast(title, message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'bg-gray-900/95 backdrop-blur-md border border-emerald-500/50 text-white p-4 rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.2)] flex items-start gap-3 transform transition-all duration-300 translate-y-10 opacity-0 pointer-events-auto min-w-[300px] border-l-4 border-l-emerald-500';
+      toast.innerHTML = `<div class="mt-0.5 text-emerald-400"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div><div><h4 class="font-bold text-sm tracking-wide text-white">${title}</h4><p class="text-xs text-gray-400 mt-1 font-mono">${message}</p></div>`;
+      container.appendChild(toast);
+      requestAnimationFrame(() => { requestAnimationFrame(() => { toast.classList.remove('translate-y-10', 'opacity-0'); }); });
+      setTimeout(() => { toast.classList.add('opacity-0', 'translate-x-10'); setTimeout(() => toast.remove(), 300); }, 3500);
+    }
+    window.showToast = showToast;
+
+    function applyFix(serverId, type, silent = false) { 
+        if (!appliedFixes[serverId]) appliedFixes[serverId] = []; 
+        if (!appliedFixes[serverId].includes(type)) {
+            appliedFixes[serverId].push(type); 
+            const s = globalServers.find(x => x.id === serverId);
+            if (!silent && s) {
+                let msg = '';
+                if(type === 'zombie') msg = `Secured $${s.monthly_cost.toFixed(2)}/mo. Server terminated.`;
+                else if(type === 'oversized') msg = `Secured $${(s.monthly_cost/2).toFixed(2)}/mo. GPU downgraded.`;
+                else if(type === 'security') msg = `Vulnerability patched. Ports secured.`;
+                else if(type === 'schedule') msg = `Dev environment suspended locally.`;
+                showToast('✅ Action Successful', msg);
+            }
+        }
+        globalServers = applyPersistentFixes(globalServers); updateGridDOM(); if (!document.getElementById('modal-overlay').classList.contains('pointer-events-none')) renderModalBody(); 
+    }
+
+    function updateGridDOM() {
+      const container = document.getElementById('grid-container'); const isFirstRender = container.childElementCount === 0 || container.innerHTML.includes('Failed');
+      let html = '';
+      globalServers.forEach(server => {
+        const fixes = appliedFixes[server.id] || []; const isZombie = hasScanned && server.cpu_usage_percent === 0 && server.network_traffic === 0; const isOversized = hasScanned && server.gpu_count > 0 && server.max_gpu_usage_percent !== null && server.max_gpu_usage_percent < 10; const isRisk = hasScanned && server.open_ports.includes("0.0.0.0/0"); const hasSchedule = fixes.includes('schedule');
+        let borderClass = 'border-white/5', bgGlow = '';
+        if (fixes.includes('zombie') || fixes.includes('oversized') || fixes.includes('security')) borderClass = 'border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20'; else if (hasSchedule) borderClass = 'border-indigo-400/40 shadow-[0_0_20px_rgba(99,102,241,0.15)] ring-1 ring-indigo-500/20'; else if (isZombie) { borderClass = 'border-rose-500/50 shadow-[0_0_30px_rgba(244,63,94,0.2)] ring-1 ring-rose-500/20'; bgGlow = 'radial-gradient(circle at top right, rgba(244,63,94,0.1) 0%, transparent 60%)'; } else if (isOversized) borderClass = 'border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.2)] ring-1 ring-amber-500/20'; else if (isRisk) borderClass = 'border-orange-500/50 shadow-[0_0_30px_rgba(249,115,22,0.2)] ring-1 ring-orange-500/20';
+        let cpuColor = server.cpu_usage_percent > 80 ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.6)]' : server.cpu_usage_percent > 50 ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.6)]' : 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.6)]';
+        html += `<div class="glass-card p-6 flex flex-col h-full space-y-5 rounded-3xl ${borderClass}" style="background-image: ${bgGlow}">
+            <div class="flex items-start justify-between">
+              <div><h3 class="font-black text-2xl text-white mb-2 tracking-tight flex items-center gap-2">${server.name}${hasSchedule ? '<div class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>' : ''}</h3><div class="flex items-center gap-2"><div class="text-[10px] text-gray-400 bg-gray-900/80 px-2 py-0.5 rounded border border-gray-700 uppercase font-mono">${server.machine_type} &bull; ${server.cpu_count||1} Core</div>${server.gpu_count > 0 ? '<span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-mono border border-cyan-500/30 font-bold">GPU</span>' : ''}</div></div>
+              <div class="flex flex-col gap-2 items-end"><div class="px-2 py-1 rounded text-[10px] font-bold tracking-[0.1em] font-mono ${server.is_dev_environment ? 'bg-amber-500/10 text-amber-500' : 'bg-cyan-500/10 text-cyan-400'}">${server.is_dev_environment ? 'DEV' : 'PROD'}</div><button onclick="openServerModal('${server.id}')" class="text-[10px] font-bold tracking-widest uppercase font-mono text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white border border-indigo-500/20 px-3 py-1.5 rounded transition-all flex items-center gap-1 group">Details</button></div>
+            </div>
+            <div class="flex-1 space-y-5 border-t border-gray-800 pt-5"><div class="space-y-3"><div class="flex justify-between items-center bg-gray-950/40 p-3 rounded-lg border border-gray-800"><span class="text-gray-500 font-mono font-bold tracking-[0.2em] uppercase text-[10px]">CPU</span><span class="font-mono font-black text-white text-2xl">${server.cpu_usage_percent === -1 ? '0' : server.cpu_usage_percent}%</span></div><div class="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden"><div class="h-full rounded-full transition-all duration-1000 ${server.cpu_usage_percent === -1 ? 'bg-transparent' : cpuColor}" style="width: ${server.cpu_usage_percent === -1 ? 0 : server.cpu_usage_percent}%"></div></div></div><div class="space-y-3"><div class="flex justify-between items-center bg-gray-950/40 p-3 rounded-lg border border-gray-800"><span class="text-gray-500 font-mono font-bold tracking-[0.2em] uppercase text-[10px]">Network</span><span class="font-mono text-cyan-400 font-black text-xl">${server.network_traffic} MB/s</span></div><div class="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden"><div class="h-full rounded-full transition-all duration-1000 ${server.network_traffic === 0 ? 'bg-transparent' : 'bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.6)]'}" style="width: ${Math.min(100, server.network_traffic / 40)}%"></div></div></div></div>
+            <div class="pt-5 border-t border-gray-800 flex items-center justify-between"><div class="flex flex-col gap-1"><span class="text-gray-600 text-[10px] uppercase font-mono font-bold tracking-[0.2em]">Monthly Cost</span><span class="font-mono text-white text-3xl font-black flex items-center">$${server.monthly_cost.toFixed(2)}${isOversized && !fixes.includes('oversized') ? '<span class="bg-amber-500/10 text-amber-500 px-1.5 rounded py-0.5 ml-3 text-[11px] uppercase font-mono border border-amber-500/30 font-bold">Wasteful</span>' : ''}</span></div></div>
+            ${hasScanned && (fixes.includes('zombie') || fixes.includes('oversized') || fixes.includes('security')) ? `<div class="w-full bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5 text-emerald-400 text-[10px] font-bold text-center font-mono uppercase tracking-[0.2em]">Secured</div>` : (!hasScanned ? '' : `
+              ${isZombie ? `<button onclick="applyFix('${server.id}', 'zombie')" class="w-full py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 border border-rose-500/30 hover:text-white text-[10px] font-bold font-mono uppercase rounded-xl transition-all shadow-[0_0_10px_rgba(244,63,94,0.1)]">Eliminate Zombie</button>` : ''}
+              ${isOversized ? `<button onclick="applyFix('${server.id}', 'oversized')" class="w-full py-2.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 border border-amber-500/30 hover:text-gray-900 text-[10px] font-bold font-mono uppercase rounded-xl transition-all shadow-[0_0_10px_rgba(245,158,11,0.1)]">Downgrade GPU</button>` : ''}
+              ${isRisk ? `<button onclick="applyFix('${server.id}', 'security')" class="w-full py-2.5 bg-orange-500/10 hover:bg-orange-500 text-orange-400 border border-orange-500/30 hover:text-white text-[10px] font-bold font-mono uppercase rounded-xl transition-all shadow-[0_0_10px_rgba(249,115,22,0.1)]">Patch Vuln</button>` : ''}
+            `)}
+            ${hasScanned && !fixes.includes('zombie') && !hasSchedule && server.is_dev_environment ? `<button onclick="applyFix('${server.id}', 'schedule')" class="w-full py-2.5 bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 border border-indigo-500/30 hover:text-white text-[10px] font-bold font-mono uppercase rounded-xl transition-all text-center">Pause Dev Env</button>` : ''}
+          </div>`;
+      });
+      if (container.innerHTML !== html) container.innerHTML = html;
+      if (isFirstRender) gsap.fromTo('.glass-card', { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, stagger: 0.05, ease: 'power3.out' });
+    }
+
+    let showIndividualCores = false;
+    function toggleIndividualCores() { showIndividualCores = !showIndividualCores; renderModalBody(); }
+    function setTimeframe(tf) { analyticsTimeframe = tf; if(serverDrillDown) renderModalBody(); }
+    function openModal() { document.getElementById('modal-overlay').classList.remove('opacity-0', 'pointer-events-none'); document.getElementById('modal-content').classList.remove('scale-95', 'translate-y-4'); drillDownCategory = null; serverDrillDown = null; renderModalBody(); }
+    function openServerModal(serverId) { document.getElementById('modal-overlay').classList.remove('opacity-0', 'pointer-events-none'); document.getElementById('modal-content').classList.remove('scale-95', 'translate-y-4'); serverDrillDown = serverId; drillDownCategory = null; renderModalBody(); }
+    function closeModal() { document.getElementById('modal-overlay').classList.add('opacity-0', 'pointer-events-none'); document.getElementById('modal-content').classList.add('scale-95', 'translate-y-4'); serverDrillDown = null; drillDownCategory = null; if(chartInstance) { chartInstance.destroy(); chartInstance = null; } }
+    function setDrillDown(category) { drillDownCategory = category; serverDrillDown = null; renderModalBody(); }
+
+    function renderModalBody() {
+      const title = document.getElementById('modal-title'), body = document.getElementById('modal-body');
+      const zombies = globalServers.filter(s => s.cpu_usage_percent === 0 && s.network_traffic === 0 && !(appliedFixes[s.id] || []).includes("zombie"));
+      const oversized = globalServers.filter(s => s.gpu_count > 0 && s.max_gpu_usage_percent !== null && s.max_gpu_usage_percent < 10 && !(appliedFixes[s.id] || []).includes("oversized"));
+      const securityRisks = globalServers.filter(s => s.open_ports.includes("0.0.0.0/0") && !(appliedFixes[s.id] || []).includes("security"));
+
+      if (serverDrillDown) {
+        const s = globalServers.find(x => x.id === serverDrillDown); title.innerHTML = `<div class="p-2 rounded border border-cyan-500/30 font-mono text-[10px] text-cyan-400">ANALYTICS:</div><span class="text-white ml-2 font-mono">${s.name}</span>`;
+        const timeTabs = ['Live', '24H', '1W', '1M'], isZombie = (s.cpu_usage_percent === -1) || (s.cpu_usage_percent === 0 && s.network_traffic === 0), fixes = appliedFixes[s.id] || [];
+        let tabsHtml = `<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"><div class="flex gap-1.5 bg-gray-900 border border-gray-800 p-1 rounded-xl w-max">` + 
+          timeTabs.map(tf => `<button onclick="setTimeframe('${tf}')" class="px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${analyticsTimeframe === tf ? 'bg-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'text-gray-500 hover:text-white'}">${tf}</button>`).join('') + `</div>
+          <button onclick="toggleIndividualCores()" class="px-5 py-2 rounded-xl border ${showIndividualCores ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-gray-900 border-gray-800 text-gray-400'} text-xs font-bold uppercase transition-all">Isolate Hardware</button></div>`;
+        
+        let chartLabels = [], chartCpu = [], chartNet = [];
+        if (analyticsTimeframe === 'Live') { chartLabels = liveChartData[s.id]?.labels||[]; chartCpu = liveChartData[s.id]?.cpu||[]; chartNet = liveChartData[s.id]?.net||[]; }
+        else { let pts = analyticsTimeframe === '24H' ? 24 : analyticsTimeframe === '1W' ? 7 : 30; for(let i=pts-1; i>=0; i--) { let d = new Date(); if(pts===24) {d.setHours(d.getHours()-i); chartLabels.push(d.getHours()+':00');} else {d.setDate(d.getDate()-i); chartLabels.push((d.getMonth()+1)+'/'+d.getDate());} chartCpu.push((isZombie||fixes.includes('zombie'))?0:Math.max(0,Math.min(100,s.cpu_usage_percent+(Math.sin(i*2)*15)))); chartNet.push((isZombie||fixes.includes('zombie'))?0:Math.max(0,s.network_traffic+(Math.cos(i*3)*s.network_traffic*0.5))); }}
+
+        let individualCoresHtml = '';
+        if (showIndividualCores) {
+            let cpuHtml = `<div class="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl mb-6"><div class="text-[11px] font-bold text-gray-400 uppercase mb-4 border-b border-gray-800/80 pb-3 font-mono">Active ${s.cpu_count||1} CPU Threads</div><div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">`;
+            for(let i=0; i<(s.cpu_count||1); i++) { let coreBase = isZombie?0:Math.max(1,Math.min(100, s.cpu_usage_percent+(Math.cos((i+1)*5.5)*10))); let barColor = coreBase>80?'bg-rose-500':coreBase>50?'bg-amber-500':'bg-cyan-500'; cpuHtml += `<div class="bg-gray-950 p-4 rounded-xl border border-gray-800"><div class="flex justify-between items-center mb-2"><span class="text-[10px] font-mono text-cyan-600">vCORE-${i}</span><span class="text-[11px] font-bold text-white">${Math.round(coreBase)}%</span></div><div class="h-1 w-full bg-transparent border border-white/5 rounded-full overflow-hidden"><div class="h-full rounded-full ${barColor} shadow-[0_0_10px_currentColor] transition-all duration-1000" style="width: ${coreBase}%"></div></div></div>`; }
+            cpuHtml += `</div></div>`;
+            if(s.gpu_count>0) { individualCoresHtml += cpuHtml + `<div class="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl mb-6"><div class="text-[11px] font-bold text-gray-400 uppercase mb-4 border-b border-gray-800/80 pb-3 font-mono">Dedicated ${s.gpu_count} GPU Threads</div><div class="grid grid-cols-2 gap-4">`;
+              for(let i=0; i<s.gpu_count; i++) { let coreBase = isZombie?0:(s.max_gpu_usage_percent||0); if(fixes.includes('oversized')||s.cpu_usage_percent===-1) coreBase=0; let barColor=coreBase>80?'bg-rose-500':coreBase>30?'bg-amber-500':'bg-indigo-500'; individualCoresHtml += `<div class="bg-gray-950 p-4 rounded-xl border border-gray-800"><div class="flex justify-between items-center mb-3"><span class="text-[10px] font-mono text-indigo-400">GPU-${i}</span><span class="text-sm font-bold text-white">${Math.round(coreBase)}%</span></div><div class="h-1 w-full bg-transparent border border-white/5 rounded-full overflow-hidden"><div class="h-full rounded-full ${barColor} shadow-[0_0_10px_currentColor] transition-all duration-1000" style="width: ${coreBase}%"></div></div></div>`; }
+              individualCoresHtml += `</div></div>`;
+            } else individualCoresHtml += cpuHtml;
+        }
+
+        const hash = s.id.split('-')[1] || s.id.length; const teams = ['Alpha Operations', 'Nexus Defense', 'Delta Analytics', 'Core Logistics', 'Project Omega']; const heads = ['Sarah Jenkins', 'David Chen', 'Marcus Vance', 'Elena Rostova', 'James Wilson']; const teamName = teams[hash % teams.length]; const teamHead = heads[hash % heads.length]; const rentedDate = `2024-0${1 + (hash%9)}-${10 + (hash%15)}`;
+        const summaryHtml = `<div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"><div class="flex flex-col"><span class="text-gray-500 tracking-[0.2em] font-mono text-[9px] uppercase mb-1">Assigned Team</span><span class="text-white font-bold tracking-widest text-xs">${teamName}</span></div><div class="flex flex-col"><span class="text-gray-500 tracking-[0.2em] font-mono text-[9px] uppercase mb-1">Team Head</span><span class="text-white font-bold tracking-widest text-xs">${teamHead}</span></div><div class="flex flex-col"><span class="text-gray-500 tracking-[0.2em] font-mono text-[9px] uppercase mb-1">Date Rented</span><span class="text-white font-bold tracking-widest text-xs">${rentedDate}</span></div><div class="flex flex-col"><span class="text-gray-500 tracking-[0.2em] font-mono text-[9px] uppercase mb-1">Origin Cluster</span><span class="text-cyan-400 font-mono font-bold tracking-widest text-[10px] border border-cyan-500/30 px-2 py-0.5 rounded bg-cyan-500/10 w-max shadow-[0_0_10px_rgba(34,211,238,0.2)]">ZONE-${hash}</span></div></div>`;
+        body.innerHTML = summaryHtml + tabsHtml + `<div class="w-full h-[300px] bg-gray-950 border border-gray-800 p-4 rounded-2xl mb-6"><canvas id="analyticsChart"></canvas></div>` + individualCoresHtml + `<button onclick="closeModal()" class="w-full tracking-widest font-mono text-center text-[10px] uppercase text-gray-500 hover:text-white transition-colors mt-8">Close Analytics</button>`;
+        setTimeout(() => { if(chartInstance) chartInstance.destroy(); chartInstance = new Chart(document.getElementById('analyticsChart').getContext('2d'), { type: 'line', data: { labels: chartLabels, datasets: [{ label: 'CPU Usage (%)', data: chartCpu, borderColor: '#22d3ee', backgroundColor: 'rgba(34, 211, 238, 0.1)', borderWidth: 2, pointRadius: 0, hoverRadius: 6, hitRadius: 30, tension: 0.4, fill: true, yAxisID: 'y' }, { label: 'Network (MB/s)', data: chartNet, borderColor: '#818cf8', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, hoverRadius: 6, hitRadius: 30, tension: 0.4, yAxisID: 'y1' }]}, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(3,7,18,0.95)', titleColor: '#fff', bodyColor: '#fff', borderColor: 'rgba(34,211,238,0.3)', borderWidth: 1, padding: 12, displayColors: true, boxPadding: 6 } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' } }, y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }, y1: { position: 'right', grid: { drawOnChartArea: false } } } }}); }, 0);
+      } else if (drillDownCategory) {
+        let list = drillDownCategory === 'zombie' ? zombies : drillDownCategory === 'oversized' ? oversized : securityRisks;
+        let action = drillDownCategory === 'zombie' ? 'zombie' : drillDownCategory === 'oversized' ? 'oversized' : 'security';
+        let actionText = drillDownCategory === 'zombie' ? 'Eliminate Zombie' : drillDownCategory === 'oversized' ? 'Downgrade GPU' : 'Patch Security';
+        title.innerHTML = `<div class="p-1.5 rounded bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-mono tracking-widest text-[9px] uppercase">DRILL DOWN</div><span class="text-white ml-2 font-mono capitalize">${drillDownCategory} Nodes</span>`;
+        if(list.length === 0) {
+            body.innerHTML = `<div class="text-center p-8 text-gray-500 font-mono">No nodes currently matching this category.</div><button onclick="setDrillDown(null)" class="w-full mt-4 text-[10px] uppercase text-gray-500 hover:text-white transition-colors">Back to Summary</button>`;
+        } else {
+            let html = `<div class="space-y-4 mb-6">`;
+            list.forEach(s => {
+              const onclickAttr = drillDownCategory === 'zombie'
+                ? `requestElevation('${s.id}', '${s.name}')`
+                : `applyFix('${s.id}', '${action}')`;
+              html += `<div class="bg-gray-950 border border-gray-800 p-4 rounded-xl flex items-center justify-between"><div class="flex items-center gap-4"><span class="text-white font-mono font-bold">${s.name}</span><span class="text-[9px] text-gray-500 bg-gray-900 border border-gray-700 px-2 py-0.5 rounded uppercase font-mono">${s.machine_type}</span></div><button id="fix-btn-${s.id}" onclick="${onclickAttr}" class="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500 border border-indigo-500/30 text-indigo-400 hover:text-white text-[10px] font-bold font-mono uppercase rounded-lg transition-all shadow-[0_0_15px_rgba(99,102,241,0.1)]">${actionText}</button></div>`;
+            });
+            html += `</div><button onclick="fixAll('${action}')" class="w-full py-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-bold font-mono tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] mb-4">Fix All Remaining</button><button onclick="setDrillDown(null)" class="w-full tracking-widest font-mono text-center text-[10px] uppercase text-gray-500 hover:text-white transition-colors mt-2">Back to Summary</button>`;
+            body.innerHTML = html;
+        }
+      } else {
+        title.innerHTML = `<div class="p-1.5 rounded bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-mono tracking-widest text-[9px]">SUMMARY</div><span class="text-white ml-2 font-mono text-xl font-bold">Executive Health</span><button onclick="exportCSV()" class="ml-auto flex items-center gap-2 px-4 py-2 bg-gray-900 border border-gray-700 hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400 text-[10px] font-bold tracking-widest uppercase font-mono text-gray-400 rounded-lg transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)]"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Export CSV</button>`;
+        body.innerHTML = `<div class="flex flex-col md:flex-row gap-8 mb-8"><div class="bg-gray-950 border border-gray-800 rounded-2xl p-6 flex flex-col justify-center flex-1"><h3 class="text-lg font-mono tracking-[0.2em] text-gray-500 mb-6">Financial Impact</h3><div class="space-y-4"><div class="flex justify-between items-center"><span class="text-gray-400 text-sm">Terminating Zombies</span><span class="text-emerald-400 font-mono text-lg font-bold">$${zombies.reduce((acc, s) => acc + s.monthly_cost, 0).toFixed(2)} /mo</span></div><div class="flex justify-between items-center"><span class="text-gray-400 text-sm">Rightsizing GPUs</span><span class="text-emerald-400 font-mono text-lg font-bold">$${oversized.reduce((acc, s) => acc + (s.monthly_cost/2), 0).toFixed(2)} /mo</span></div><div class="flex justify-between items-center pt-4 border-t border-gray-800"><span class="text-indigo-400 text-lg font-bold">Total Savings</span><span class="text-emerald-400 font-mono text-3xl font-black">$${(zombies.reduce((acc, s) => acc + s.monthly_cost, 0) + oversized.reduce((acc, s) => acc + (s.monthly_cost/2), 0)).toFixed(2)}</span></div></div></div>
+            <div class="space-y-4 flex flex-col justify-center flex-1">
+            <button onclick="setDrillDown('zombie')" class="w-full flex items-center justify-between p-5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-2xl group transition-all"><div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-500 text-2xl font-black">⚠</div><div class="text-left"><div class="text-white font-black text-2xl tracking-tight">${zombies.length} Zombie Nodes</div><div class="text-[11px] font-mono text-rose-400 uppercase tracking-widest mt-1">Critical Waste</div></div></div></button>
+            <button onclick="setDrillDown('oversized')" class="w-full flex items-center justify-between p-5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-2xl group transition-all"><div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 text-2xl font-black">⚡</div><div class="text-left"><div class="text-white font-black text-2xl tracking-tight">${oversized.length} Oversized GPUs</div><div class="text-[11px] font-mono text-amber-500 uppercase tracking-widest mt-1">Compute Waste</div></div></div></button>
+            <button onclick="setDrillDown('security')" class="w-full flex items-center justify-between p-5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-2xl group transition-all"><div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-500 text-2xl font-black">!</div><div class="text-left"><div class="text-white font-black text-2xl tracking-tight">${securityRisks.length} Security Risks</div><div class="text-[11px] font-mono text-orange-400 uppercase tracking-widest mt-1">Open Ports</div></div></div></button></div></div>`;
+      }
+      window.fixAll = function(category) {
+        const z = globalServers.filter(s => s.cpu_usage_percent === 0 && s.network_traffic === 0 && !(appliedFixes[s.id]||[]).includes('zombie'));
+        const o = globalServers.filter(s => s.gpu_count > 0 && s.max_gpu_usage_percent !== null && s.max_gpu_usage_percent < 10 && !(appliedFixes[s.id]||[]).includes('oversized'));
+        const sr = globalServers.filter(s => s.open_ports.includes("0.0.0.0/0") && !(appliedFixes[s.id]||[]).includes('security'));
+        if (category === 'zombie' && z.length > 0) { let t=0; z.forEach(s => { t+=s.monthly_cost; applyFix(s.id, 'zombie', true); }); showToast('✅ Batch Operations', `Terminated ${z.length} Zombies. Saved $${t.toFixed(2)}/mo.`); }
+        if (category === 'oversized' && o.length > 0) { let t=0; o.forEach(s => { t+=s.monthly_cost/2; applyFix(s.id, 'oversized', true); }); showToast('✅ Batch Operations', `Downgraded ${o.length} GPUs. Saved $${t.toFixed(2)}/mo.`); }
+        if (category === 'security' && sr.length > 0) { sr.forEach(s => applyFix(s.id, 'security', true)); showToast('✅ Batch Operations', `Patched vulnerabilities across ${sr.length} nodes.`); }
+      };
+    }
+    
+    // --- Progressive Consent / Auth Elevation Flow ---
+    let pendingServerIdToFix = null;
+
+    window.requestElevation = function(serverId, serverName) {
+      pendingServerIdToFix = serverId;
+      document.getElementById('target-server-name').textContent = serverName;
+      const modal = document.getElementById('oauth-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    };
+
+    window.closeAuthModal = function() {
+      const modal = document.getElementById('oauth-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      pendingServerIdToFix = null;
+    };
+
+    window.executeAuthorizedFix = function() {
+      const id = pendingServerIdToFix;
+      closeAuthModal();
+      if (!id) return;
+      // Find the server name for the toast
+      const server = globalServers.find(s => s.id === id);
+      const savings = server ? server.monthly_cost : 0;
+      // Apply the fix silently (toast is handled here)
+      applyFix(id, 'zombie', true);
+      showToast('✅ Access Granted', `${server ? server.name + ' t' : 'T'}erminated. Secured $${savings.toFixed(2)}/mo.`);
+      // Visually disable the button in the drill-down list
+      const btn = document.getElementById(`fix-btn-${id}`);
+      if (btn) {
+        btn.textContent = 'TERMINATED';
+        btn.disabled = true;
+        btn.className = 'px-4 py-2 bg-gray-800 border border-gray-700 text-gray-500 text-[10px] font-bold font-mono uppercase rounded-lg cursor-not-allowed';
+      }
+    };
+
+    window.exportCSV = function() {
+        let sc = "Server Name,Machine Type,Issue Detected,Monthly Waste\n";
+        let c = 0;
+        globalServers.forEach(s => {
+            const f = appliedFixes[s.id] || [];
+            if(s.cpu_usage_percent === 0 && s.network_traffic === 0 && !f.includes('zombie')) { sc += `${s.name},${s.machine_type},Zombie Node,$${s.monthly_cost.toFixed(2)}\n`; c++; }
+            else if(s.gpu_count > 0 && s.max_gpu_usage_percent !== null && s.max_gpu_usage_percent < 10 && !f.includes('oversized')) { sc += `${s.name},${s.machine_type},Oversized GPU,$${(s.monthly_cost/2).toFixed(2)}\n`; c++; }
+            else if(s.open_ports.includes("0.0.0.0/0") && !f.includes('security')) { sc += `${s.name},${s.machine_type},Security Risk,$0.00\n`; c++; }
+        });
+        if (c === 0) { showToast('Notice', 'No active issues to export.'); return; }
+        const blob = new Blob([sc], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'cloud_healer_audit_report.csv'; link.style.display = 'none';
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        showToast('✅ Download Successful', 'cloud_healer_audit_report.csv was saved to your device.');
+    };
+    
+    
+    // Initial fetch to populate background cards before scanner init
+    fetchServers();
+    scanInterval = setInterval(fetchServers, 2000);
+  </script>
+</body>
+</html>
